@@ -88,6 +88,7 @@ def make_ring(
     link_output_transform: Optional[Callable] = None,
     layernorm: bool = True,
     layernorm_trainable: bool = True,
+    unroll: int = 1,
 ) -> SimpleNamespace:
 
     if link_output_normalize:
@@ -134,6 +135,7 @@ def make_ring(
             ),
             X,
             state,
+            unroll=unroll,
         )
         hk.set_state("inner_cell_state", state)
         return y

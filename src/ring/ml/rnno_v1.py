@@ -16,6 +16,7 @@ def rnno_v1_forward_factory(
     act_fn_rnn=jax.nn.elu,
     lam: Optional[tuple[int]] = None,
     celltype: str = "gru",
+    unroll: int = 1,
 ):
     # unused
     del lam
@@ -37,7 +38,7 @@ def rnno_v1_forward_factory(
 
         for i, n_units in enumerate(rnn_layers):
             state = hk.get_state(f"rnn_{i}", shape=[n_units * _factor], init=jnp.zeros)
-            X, state = hk.dynamic_unroll(_cell(n_units), X, state)
+            X, state = hk.dynamic_unroll(_cell(n_units), X, state, unroll=unroll)
             hk.set_state(f"rnn_{i}", state)
 
             if layernorm:
