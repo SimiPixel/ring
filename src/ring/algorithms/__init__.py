@@ -12,8 +12,11 @@ from .dynamics import inverse_dynamics
 from .dynamics import step
 from .generator import FINALIZE_FN
 from .generator import Generator
+from .generator import EndpointConstrainedTrajectory
+from .generator import LinkPoint
 from .generator import RCMG
 from .generator import SETUP_FN
+from .generator import TrajectoryFn
 from .generator.finalize_fns import GeneratorTrafoExpandFlatten
 from .jcalc import get_joint_model
 from .jcalc import jcalc_motion

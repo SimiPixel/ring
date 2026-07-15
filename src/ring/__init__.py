@@ -10,7 +10,9 @@ from . import spatial
 from . import sys_composer
 from . import utils
 from .algorithms import join_motionconfigs
+from .algorithms import EndpointConstrainedTrajectory
 from .algorithms import JointModel
+from .algorithms import LinkPoint
 from .algorithms import MotionConfig
 from .algorithms import RCMG
 from .algorithms import register_new_joint_type

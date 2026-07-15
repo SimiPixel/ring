@@ -1,4 +1,5 @@
 from typing import Callable
+from typing import Optional
 
 import jax
 from tree_utils import PyTree
@@ -19,3 +20,5 @@ Generator = Callable[[PRNGKey], Xy]
 BatchedGenerator = Callable[[PRNGKey], BatchedXy]
 SETUP_FN = Callable[[PRNGKey, base.System], base.System]
 FINALIZE_FN = Callable[[PRNGKey, jax.Array, base.Transform, base.System], Xy]
+TrajectoryFn = Callable[[PRNGKey, base.System, object, Optional[int]], jax.Array]
+TRAJECTORY_FN = TrajectoryFn

@@ -33,6 +33,7 @@ class RCMG:
         sys: base.System | list[base.System],
         config: jcalc.MotionConfig | list[jcalc.MotionConfig] = jcalc.MotionConfig(),
         setup_fn: Optional[types.SETUP_FN] = None,
+        trajectory_fn: Optional[types.TRAJECTORY_FN] = None,
         finalize_fn: Optional[types.FINALIZE_FN] = None,
         add_X_imus: bool = False,
         add_X_imus_kwargs: dict = dict(),
@@ -75,6 +76,10 @@ class RCMG:
                 and range constraints. Defaults to `jcalc.MotionConfig()`.
             setup_fn (Optional[types.SETUP_FN], optional):
                 A function to modify the system before motion generation. Defaults to `None`.
+            trajectory_fn (Optional[types.TRAJECTORY_FN], optional):
+                A function ``(key, system, motion_config, sample_count) -> q`` that
+                generates a complete, correlated generalized-coordinate trajectory.
+                When omitted, each joint is drawn independently. Defaults to `None`.
             finalize_fn (Optional[types.FINALIZE_FN], optional):
                 A function to modify outputs after motion generation. Defaults to `None`.
             add_X_imus (bool, optional):
@@ -168,6 +173,7 @@ class RCMG:
                     sys=_sys,
                     config=config,
                     setup_fn=setup_fn,
+                    trajectory_fn=trajectory_fn,
                     finalize_fn=finalize_fn,
                     add_X_imus=add_X_imus,
                     add_X_imus_kwargs=add_X_imus_kwargs,
@@ -410,6 +416,7 @@ def _build_mconfig_batched_generator(
     sys: base.System,
     config: list[jcalc.MotionConfig],
     setup_fn: types.SETUP_FN | None,
+    trajectory_fn: types.TRAJECTORY_FN | None,
     finalize_fn: types.FINALIZE_FN | None,
     add_X_imus: bool,
     add_X_imus_kwargs: dict,
@@ -536,7 +543,18 @@ def _build_mconfig_batched_generator(
 
         qs = []
         for i, _config in enumerate(config):
-            key, _q = draw_random_q(key, syss[i], _config, N)
+            if trajectory_fn is None:
+                key, _q = draw_random_q(key, syss[i], _config, N)
+            else:
+                key, consume = jax.random.split(key)
+                _q = trajectory_fn(consume, syss[i], _config, N)
+                expected_samples = (
+                    int(_config.T / sys.dt) if N is None else N
+                )
+                assert _q.shape == (expected_samples, syss[i].q_size()), (
+                    f"trajectory_fn returned shape {_q.shape}, expected "
+                    f"{(expected_samples, syss[i].q_size())}"
+                )
             qs.append(_q)
         qs = jnp.stack(qs)
 

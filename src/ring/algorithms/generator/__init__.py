@@ -5,7 +5,11 @@ from . import motion_artifacts
 from . import pd_control
 from . import setup_fns
 from . import types
+from . import trajectory
 from .base import RCMG
+from .trajectory import EndpointConstrainedTrajectory
+from .trajectory import LinkPoint
 from .types import FINALIZE_FN
 from .types import Generator
 from .types import SETUP_FN
+from .types import TrajectoryFn

@@ -102,6 +102,89 @@ def test_rcmg():
             assert qs.shape == (bs, 100, sys.q_size())
 
 
+def test_correlated_trajectory_fn():
+    system = ring.io.load_example("test_free")
+    config = ring.MotionConfig(T=0.1)
+
+    def trajectory_fn(key, sys, motion_config, sample_count):
+        del key
+        samples = (
+            int(motion_config.T / sys.dt)
+            if sample_count is None
+            else sample_count
+        )
+        q = jnp.zeros((samples, sys.q_size()))
+        return q.at[:, 0].set(1.0)
+
+    generator = ring.RCMG(
+        system,
+        config,
+        trajectory_fn=trajectory_fn,
+        finalize_fn=lambda key, q, x, sys: (q, x.pos),
+    ).to_lazy_gen(sizes=2, jit=False)
+    q, positions = generator(jax.random.PRNGKey(2))
+
+    assert q.shape == (2, 10, system.q_size())
+    np.testing.assert_allclose(q[..., 0], 1.0)
+    np.testing.assert_allclose(q[..., 1:], 0.0)
+    assert positions.shape == (2, 10, system.num_links(), 3)
+
+
+def test_endpoint_constrained_trajectory_is_jittable_and_preserves_center():
+    system = ring.io.load_example("test_control")
+    config = ring.MotionConfig(T=0.1)
+
+    def base(key, sys, motion_config, sample_count):
+        samples = (
+            int(motion_config.T / sys.dt)
+            if sample_count is None
+            else sample_count
+        )
+        q = jnp.broadcast_to(ring.State.create(sys).q, (samples, sys.q_size()))
+        q = q.at[:, 4].set(jnp.linspace(0.0, 0.1, samples))
+        angle = jax.random.uniform(key, minval=-jnp.pi, maxval=jnp.pi)
+        return q.at[:, 7].set(angle).at[:, 8].set(-0.5 * angle)
+
+    trajectory = ring.EndpointConstrainedTrajectory(
+        base=base,
+        endpoints=(
+            ring.LinkPoint("6D"),
+            ring.LinkPoint("lower", (1.0, 0.0, 0.0)),
+        ),
+        minimum_distance=1.5,
+        attempts=30,
+        center_points=(
+            ring.LinkPoint("upper", (0.5, 0.0, 0.0)),
+            ring.LinkPoint("lower", (0.5, 0.0, 0.0)),
+        ),
+        preserve_root_trajectory_as_center=True,
+    )
+    q = jax.jit(lambda key: trajectory(key, system, config, None))(
+        jax.random.PRNGKey(1)
+    )
+    transforms, _ = jax.vmap(
+        ring.algorithms.forward_kinematics_transforms, (None, 0)
+    )(system, q)
+
+    def point(name, offset):
+        index = system.name_to_idx(name)
+        offsets = jnp.broadcast_to(jnp.array(offset), (len(q), 3))
+        return transforms.pos[:, index] + ring.maths.rotate(
+            offsets, ring.maths.quat_inv(transforms.rot[:, index])
+        )
+
+    distance = jnp.linalg.norm(
+        point("lower", (1.0, 0.0, 0.0)) - point("6D", (0.0, 0.0, 0.0)),
+        axis=1,
+    )
+    center = 0.5 * (
+        point("upper", (0.5, 0.0, 0.0))
+        + point("lower", (0.5, 0.0, 0.0))
+    )
+    assert np.percentile(distance, 1) >= 1.5
+    np.testing.assert_allclose(center[:, 0], np.linspace(0.0, 0.1, len(q)), atol=1e-5)
+
+
 def test_rcmg_sizes_arg():
     s = ring.io.load_example("test_double_pendulum")
     c = ring.MotionConfig(T=3.0)

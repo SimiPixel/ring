@@ -344,8 +344,8 @@ def _resolve_range_of_motion(
         lower, upper = jnp.sort(jnp.hstack((lower, upper)))
 
         # clip bounds given by the angular velocity bounds to the rom bounds
-        lower = jnp.clip(lower, a_min=rom_lower)
-        upper = jnp.clip(upper, a_max=rom_upper)
+        lower = jnp.clip(lower, min=rom_lower)
+        upper = jnp.clip(upper, max=rom_upper)
 
         key, consume = random.split(key)
         return random.uniform(consume, minval=lower, maxval=upper)
