@@ -1138,6 +1138,14 @@ def _inv_kin_free_2d(x: base.Transform, _) -> jax.Array:
     return jnp.concatenate((angle_x(x), x.pos[1:]))
 
 
+def _inv_kin_saddle(x: base.Transform, _) -> jax.Array:
+    # _saddle_transform is euler_to_quat([0, y, z]). For wrapped joint angles,
+    # these half-angle ratios avoid the ambiguous unrestricted Euler solution.
+    y = 2.0 * jnp.arctan2(-x.rot[2], x.rot[0])
+    z = 2.0 * jnp.arctan2(-x.rot[3], x.rot[0])
+    return maths.wrap_to_pi(jnp.array([y, z]))
+
+
 _joint_types = {
     "free": JointModel(
         _free_transform,
@@ -1253,6 +1261,7 @@ _joint_types = {
         _p_control_term_rxyz,
         _qd_from_q_cartesian,
         maths.wrap_to_pi,
+        _inv_kin_saddle,
     ),
 }
 
